@@ -1,0 +1,18 @@
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{height:100%;width:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Inter',system-ui,sans-serif;
+  background:#f2f2f7;
+  color:#1c1c1e;
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+::-webkit-scrollbar{width:0;height:0}
+*{scrollbar-width:none}
+input,textarea,button{font-family:inherit;border:none;outline:none;background:none}
+button{cursor:pointer}
+video{outline:none}
+video::-webkit-media-controls{display:none!important}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
