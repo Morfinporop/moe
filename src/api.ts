@@ -134,6 +134,7 @@ export async function uploadVideo(
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${BASE}/api/upload`);
+    xhr.timeout = 300000; // 5 min
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) {
@@ -143,13 +144,20 @@ export async function uploadVideo(
 
     xhr.onload = () => {
       if (xhr.status === 200 || xhr.status === 201) {
-        resolve(JSON.parse(xhr.responseText));
+        try {
+          resolve(JSON.parse(xhr.responseText));
+        } catch {
+          reject(new Error("Invalid response"));
+        }
       } else {
-        reject(new Error(xhr.responseText || "Upload failed"));
+        let msg = "Upload failed";
+        try { msg = JSON.parse(xhr.responseText).error || msg; } catch {}
+        reject(new Error(msg));
       }
     };
 
-    xhr.onerror = () => reject(new Error("Network error"));
+    xhr.onerror = () => reject(new Error("Network error — check file size"));
+    xhr.ontimeout = () => reject(new Error("Upload timed out"));
     xhr.send(formData);
   });
 }
