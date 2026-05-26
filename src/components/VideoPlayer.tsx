@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 import { getStreamUrl, getAudioUrl, formatTime } from "../api";
-import { PlayIcon, PauseIcon, VolIcon, MuteIcon } from "./Icons";
-import { glassDark, progressTrack, progressFill, volTrack, volFill } from "../styles";
+import { PlayIcon, VolIcon, MuteIcon } from "./Icons";
+import { glassDark, volTrack, volFill } from "../styles";
 
 export interface VideoPlayerHandle {
   getVideo: () => HTMLVideoElement | null;
@@ -28,14 +28,15 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
     const [prog, setProg] = useState(0);
     const [dur, setDur] = useState(0);
     const [cur, setCur] = useState(0);
-    const [showCtrl, setShowCtrl] = useState(false);
     const [showVol, setShowVol] = useState(false);
-    const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
     const lastTap = useRef(0);
 
     const isVideo = fileType?.startsWith("video/");
     const url = isVideo ? getStreamUrl(slug) : null;
     const audioUrl = hasAudio ? getAudioUrl(slug) : null;
+
+    // Show full controls when paused
+    const showFull = !playing && isActive && dur > 0;
 
     useImperativeHandle(ref, () => ({ getVideo: () => vRef.current }));
 
@@ -59,12 +60,6 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
       if (a) { a.muted = muted; a.volume = vol; }
     }, [muted, vol]);
 
-    const brief = () => {
-      setShowCtrl(true);
-      clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setShowCtrl(false), 2500);
-    };
-
     const handleClick = useCallback(() => {
       const now = Date.now();
       if (now - lastTap.current < 300) {
@@ -79,10 +74,18 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
           if (!v) return;
           if (v.paused) { v.play(); if (a) a.play(); }
           else { v.pause(); if (a) a.pause(); }
-          brief();
         }
       }, 300);
     }, [onDoubleTap]);
+
+    const seek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+      const v = vRef.current; const a = aRef.current; const b = barRef.current;
+      if (!v || !b) return;
+      const r = b.getBoundingClientRect();
+      const t = ((e.clientX - r.left) / r.width) * v.duration;
+      v.currentTime = t;
+      if (a) a.currentTime = t;
+    }, []);
 
     if (!isVideo) return null;
 
@@ -104,14 +107,16 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
         {/* bottom gradient */}
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.3) 0%, transparent 30%)", pointerEvents: "none" }} />
 
-        {/* center play/pause */}
-        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", opacity: showCtrl ? 1 : 0, transition: "opacity 0.2s" }}>
-          <div style={{ ...glassDark, borderRadius: "50%", width: 56, height: 56, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {playing ? <PauseIcon size={24} style={{ color: "#fff" }} /> : <PlayIcon size={24} style={{ color: "#fff" }} />}
+        {/* center play/pause — only when paused */}
+        {showFull && (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", animation: "fadeIn 0.2s" }}>
+            <div style={{ ...glassDark, borderRadius: "50%", width: 56, height: 56, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <PlayIcon size={24} style={{ color: "#fff" }} />
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* volume — top left, YouTube Shorts style */}
+        {/* volume — top left */}
         <div
           style={{ position: "absolute", left: 10, top: 10, zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}
           onMouseEnter={() => setShowVol(true)} onMouseLeave={() => setShowVol(false)}
@@ -133,24 +138,30 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
           )}
         </div>
 
-        {/* thin progress always visible at very bottom */}
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: "rgba(255,255,255,0.12)", zIndex: 5 }}>
-          <div style={{ height: "100%", width: `${prog}%`, background: "rgba(255,255,255,0.65)", transition: "width 0.1s linear" }} />
-        </div>
-
-        {/* full controls on hover */}
-        <div style={{ position: "absolute", bottom: 2, left: 0, right: 0, padding: "20px 14px 10px", opacity: showCtrl ? 1 : 0, transition: "opacity 0.2s", pointerEvents: showCtrl ? "auto" : "none" }}>
-          <div ref={barRef} style={{ ...progressTrack, height: 4 }}
-            onClick={(e) => { const v = vRef.current; const b = barRef.current; const a = aRef.current;
-              if (!v || !b) return; const r = b.getBoundingClientRect(); const t = ((e.clientX - r.left) / r.width) * v.duration;
-              v.currentTime = t; if (a) a.currentTime = t;
-            }}>
-            <div style={{ ...progressFill, width: `${prog}%` }} />
+        {/* ── SINGLE progress bar ── */}
+        {/* When playing: thin 2px bar at bottom */}
+        {/* When paused: full seekable bar with timestamps */}
+        {showFull ? (
+          /* Paused — full controls */
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "24px 14px 12px", zIndex: 6, background: "linear-gradient(to top, rgba(0,0,0,0.35), transparent)", animation: "fadeIn 0.2s" }}>
+            <div
+              ref={barRef}
+              onClick={(e) => { e.stopPropagation(); seek(e); }}
+              style={{ height: 4, background: "rgba(255,255,255,0.2)", borderRadius: 2, overflow: "hidden", cursor: "pointer" }}
+            >
+              <div style={{ height: "100%", width: `${prog}%`, background: "rgba(255,255,255,0.8)", borderRadius: 2, transition: "width 0.05s linear" }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5, fontSize: 10, color: "rgba(255,255,255,0.5)", fontVariantNumeric: "tabular-nums" }}>
+              <span>{formatTime(cur)}</span>
+              <span>{formatTime(dur)}</span>
+            </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "rgba(255,255,255,0.45)", fontVariantNumeric: "tabular-nums" }}>
-            <span>{formatTime(cur)}</span><span>{formatTime(dur)}</span>
+        ) : (
+          /* Playing — thin bar */
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: "rgba(255,255,255,0.12)", zIndex: 5 }}>
+            <div style={{ height: "100%", width: `${prog}%`, background: "rgba(255,255,255,0.6)", transition: "width 0.15s linear" }} />
           </div>
-        </div>
+        )}
       </div>
     );
   }
