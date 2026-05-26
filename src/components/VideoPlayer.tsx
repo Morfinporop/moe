@@ -142,8 +142,8 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
         {/* When playing: thin 2px bar at bottom */}
         {/* When paused: full seekable bar with timestamps */}
         {showFull ? (
-          /* Paused — full controls */
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "24px 14px 12px", zIndex: 6, background: "linear-gradient(to top, rgba(0,0,0,0.35), transparent)", animation: "fadeIn 0.2s" }}>
+          /* Paused — full seekable bar pinned to very bottom */
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 6, padding: "0 12px 6px", animation: "fadeIn 0.2s" }}>
             <div
               ref={barRef}
               onClick={(e) => { e.stopPropagation(); seek(e); }}
@@ -151,7 +151,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, Props>(
             >
               <div style={{ height: "100%", width: `${prog}%`, background: "rgba(255,255,255,0.8)", borderRadius: 2, transition: "width 0.05s linear" }} />
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5, fontSize: 10, color: "rgba(255,255,255,0.5)", fontVariantNumeric: "tabular-nums" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 3, fontSize: 10, color: "rgba(255,255,255,0.5)", fontVariantNumeric: "tabular-nums" }}>
               <span>{formatTime(cur)}</span>
               <span>{formatTime(dur)}</span>
             </div>
